@@ -1,3 +1,4 @@
 audios/
 
-dataset_rir/
+dataset_rir/*
+!dataset_rir/.gitkeep
