@@ -94,7 +94,7 @@ class RIR_Generator():
         
     
     # ================== room construction ==================:
-    def construct_room_basic(self, show_plot=False):
+    def construct_room_basic(self, show_plot=True):
         self.room_dim =  np.array([random.uniform(self.room_diameter_range_min, self.room_diameter_range_max) for _ in range(3)])
         while True:
             try:
@@ -109,7 +109,7 @@ class RIR_Generator():
             self.plot_room(self.room)
 
 
-    def add_mic_and_sources(self, show_plot=False):
+    def add_mic_and_sources(self, show_plot=True):
         # add mic array
         self.mic_center =  self.location_3d_in_range(self.room.shoebox_dim, 1, minimum=self.mic_radius)[0]
         R = pra.circular_2D_array(center=self.mic_center[:2], M=self.mic_num, phi0=0, radius=self.mic_radius)
@@ -127,7 +127,7 @@ class RIR_Generator():
         
     
     
-    def remove_mic_and_sources(self, show_plot=False):
+    def remove_mic_and_sources(self, show_plot=True):
         for i in range(self.source_num):
             del self.room.sources[0]
         
@@ -137,7 +137,7 @@ class RIR_Generator():
             self.plot_room(self.room)
     
     
-    def compute_and_save_room_rir(self, room_idx, room_layout_idx, show_plot=False):        
+    def compute_and_save_room_rir(self, room_idx, room_layout_idx, show_plot=True):        
         self.room.image_source_model()
         self.room.compute_rir()
         
