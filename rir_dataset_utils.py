@@ -13,7 +13,7 @@ import os
 
 
 RT60_MIN = 0
-RT60_MAX = 0.7
+RT60_MAX = 0.2
 ROOM_DIAMETER_RANGE_MIN = 1
 ROOM_DIAMETER_RANGE_MAX = 5
 MIC_NUM = 8
@@ -21,8 +21,9 @@ MIC_RADIUS = 0.1
 SOURCE_NUM = 8
 ROOM_NUM = 5
 ROOM_LAYOUT_NUM = 10
-FS = 44100
+FS = 16000
 DATASET_PATH = "dataset_rir"
+
 
 
 class RIR_Generator():
@@ -94,11 +95,11 @@ class RIR_Generator():
         
     
     # ================== room construction ==================:
-    def construct_room_basic(self, show_plot=True):
-        self.room_dim =  np.array([random.uniform(self.room_diameter_range_min, self.room_diameter_range_max) for _ in range(3)])
+    def construct_room_basic(self, show_plot=False):
+        self.room_dim =  np.array([self.rng.uniform(low=self.room_diameter_range_min, high=self.room_diameter_range_max) for _ in range(3)])
         while True:
             try:
-                e_absorption, max_order = pra.inverse_sabine(random.uniform(self.rt60_min, self.rt60_max), self.room_dim)
+                e_absorption, max_order = pra.inverse_sabine(self.rng.uniform(low=self.rt60_min, high=self.rt60_max) , self.room_dim)
                 break # if it worked then just break out of the loop
             except ValueError:
                 continue
@@ -109,7 +110,7 @@ class RIR_Generator():
             self.plot_room(self.room)
 
 
-    def add_mic_and_sources(self, show_plot=True):
+    def add_mic_and_sources(self, show_plot=False):
         # add mic array
         self.mic_center =  self.location_3d_in_range(self.room.shoebox_dim, 1, minimum=self.mic_radius)[0]
         R = pra.circular_2D_array(center=self.mic_center[:2], M=self.mic_num, phi0=0, radius=self.mic_radius)
@@ -127,7 +128,7 @@ class RIR_Generator():
         
     
     
-    def remove_mic_and_sources(self, show_plot=True):
+    def remove_mic_and_sources(self, show_plot=False):
         for i in range(self.source_num):
             del self.room.sources[0]
         
@@ -137,7 +138,7 @@ class RIR_Generator():
             self.plot_room(self.room)
     
     
-    def compute_and_save_room_rir(self, room_idx, room_layout_idx, show_plot=True):        
+    def compute_and_save_room_rir(self, room_idx, room_layout_idx, show_plot=False):        
         self.room.image_source_model()
         self.room.compute_rir()
         
@@ -156,6 +157,7 @@ class RIR_Generator():
         
         # save room data to csv        
         self.write_csv_data(room_idx, room_layout_idx) 
+
 
 
 
@@ -197,11 +199,27 @@ class RIR_Loader():
         return rir
     
     
-    
+# Additional Helper Functions
+
+def initiate_csv_file(csv_file_name="dataset_rir/rir_lookup.csv"):
+    headers = [
+        "room_idx",
+        "room_layout_idx",
+        "source_locations",
+        "mic_location"
+    ]
+
+    with open(csv_file_name, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(headers)
+        
+        
     
 def sample_room_layouts(rir_generator, room_idx, room_layout_num = ROOM_LAYOUT_NUM):
     rir_generator.construct_room_basic()
-    for i in tqdm(range(room_layout_num)):
+    desc = "processing room " + str(room_idx) + "..."
+    # for i in tqdm(range(room_layout_num), desc=desc):
+    for i in range(room_layout_num):
         rir_generator.add_mic_and_sources()
         rir_generator.compute_and_save_room_rir(room_idx, i)
         rir_generator.remove_mic_and_sources()
@@ -213,6 +231,23 @@ def sample_rooms(randseed, room_start, room_end, room_layout_num=ROOM_LAYOUT_NUM
         rir_generator.initiate_csv_file()
     
     for i in range(room_start, room_end):
+        dir_name = dataset_path + "/" + str(i)
+        try:
+            os.mkdir(dir_name)
+        except FileExistsError:
+            print("already exist")
+            
+        sample_room_layouts(rir_generator, i, room_layout_num)
+        
+
+def sample_rooms_parallel(args):
+    randseed, room_start, room_end, room_layout_num, is_csv_exist, dataset_path = args
+    rir_generator = RIR_Generator(randseed=randseed)
+    if not is_csv_exist:
+        rir_generator.initiate_csv_file()
+    
+    desc = "thread " + str(room_start) + " - " + str(room_end-1)
+    for i in tqdm(range(room_start, room_end), desc=desc):
         dir_name = dataset_path + "/" + str(i)
         try:
             os.mkdir(dir_name)
